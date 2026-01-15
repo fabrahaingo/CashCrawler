@@ -2,10 +2,7 @@
 
 An open-source tool to download your own bank data (balances and transactions). Take control of your financial data without relying on third-party services.
 
-<video src="https://raw.githubusercontent.com/fabrahaingo/CashCrawler/main/assets/demo.mp4" controls width="720">
-  Your browser does not support the video tag. You can download the video
-  <a href="https://raw.githubusercontent.com/fabrahaingo/CashCrawler/main/assets/demo.mp4">here</a>.
-</video>
+https://github.com/user-attachments/assets/080f8bc0-ccc5-4f2c-bf46-9b106ae73400
 
 ## Why This Project?
 
