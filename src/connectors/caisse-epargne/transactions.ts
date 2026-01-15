@@ -22,6 +22,7 @@ import {
   saveTransactionsCSV,
   hasTransactionsForToday,
 } from "../../lib/storage";
+import { createSpinner } from "../../lib/spinner";
 
 // =============================================================================
 // TYPES
@@ -224,7 +225,6 @@ export async function downloadTransactions(
   console.log(`📅 Downloading transactions from ${startDate} to ${today}`);
 
   // Step 1: Click download button and capture auth header
-  console.log("🔍 Looking for download button...");
   await page.waitForSelector(SELECTORS.downloadButton, { timeout: 20000 });
 
   let capturedAuthHeader = "";
@@ -243,7 +243,6 @@ export async function downloadTransactions(
   );
 
   await page.click(SELECTORS.downloadButton);
-  console.log("✓ Clicked download button");
 
   // Step 2: Get last download history
   const lastDownloadResponse = await lastDownloadPromise;
@@ -257,13 +256,9 @@ export async function downloadTransactions(
   );
   const userAgent = await page.evaluate(() => navigator.userAgent);
 
-  if (!authHeader) {
-    console.warn("⚠️ Authorization header not found.");
-  }
   page.off("request", authCaptureListener);
 
   const operationItems = lastDownloadData.operationIdResponseItem || [];
-  console.log(`Found ${operationItems.length} accounts`);
 
   // Step 3: Get existing history requests
   const historyRequestsPromise = page.waitForResponse(
@@ -326,9 +321,7 @@ export async function downloadTransactions(
   let accountsWithIds: AccountDownloadInfo[];
 
   if (allHaveCorrectDateRange) {
-    console.log("✅ All accounts already have correct date range.");
-    console.log("📥 Using existing prepared files...");
-
+    // Use existing prepared files from bank
     accountsWithIds = Array.from(targetPfmContractIds).map((pfmId) => {
       const item = historyByAccount.get(pfmId!);
       const extractedPfmId = extractHistoryRequestPfmContractId(item.identity);
@@ -342,7 +335,6 @@ export async function downloadTransactions(
       };
     });
   } else {
-    console.log("📥 Creating new download requests...");
     accountsWithIds = await createDownloadRequests(
       page,
       accountsInfo,
@@ -356,26 +348,26 @@ export async function downloadTransactions(
   }
 
   // Step 6: Download CSV files
-  console.log("💾 Downloading CSV files...");
+  const downloadSpinner = createSpinner("Downloading transaction files...");
+  downloadSpinner.start();
 
+  let downloadedCount = 0;
   for (const accountInfo of accountsWithIds) {
     if (!accountInfo.historyRequestId || !accountInfo.pfmContractId) {
-      console.warn(
-        `⚠️ Skipping account ${accountInfo.pfmContractId || "unknown"}: no historyRequestId`
-      );
       continue;
     }
 
-    await downloadAccountCSV(
+    const success = await downloadAccountCSV(
       page,
       accountInfo,
       startDate,
       authHeader,
       userAgent
     );
+    if (success) downloadedCount++;
   }
 
-  console.log("✅ Transaction download completed!");
+  downloadSpinner.stop(`💾 Downloaded ${downloadedCount} account(s)`);
   return true;
 }
 
@@ -396,7 +388,8 @@ async function createDownloadRequests(
   pfmToName: Map<string, string>,
   targetPfmContractIds: Set<string | undefined>
 ): Promise<AccountDownloadInfo[]> {
-  console.log("📝 Creating download requests for all accounts...");
+  const spinner = createSpinner("Preparing download requests...");
+  spinner.start();
 
   let successCount = 0;
   for (const accountInfo of accountsInfo) {
@@ -416,8 +409,6 @@ async function createDownloadRequests(
       fileType: { code: "0" },
     };
 
-    console.log(`  📤 Creating request for ${pfmContractId}...`);
-
     try {
       const response = await page
         .context()
@@ -435,31 +426,27 @@ async function createDownloadRequests(
         });
 
       if (response.ok()) {
-        console.log(`  ✓ Created request for account ${pfmContractId}`);
         successCount++;
-      } else {
-        console.error(
-          `  ❌ Failed for account ${pfmContractId}: ${response.status()}`
-        );
       }
     } catch (error) {
-      console.error(`  ❌ Exception for account ${pfmContractId}:`, error);
+      // Silently continue on error
     }
 
     await page.waitForTimeout(SETTINGS.requestDelay);
   }
 
   if (successCount === 0) {
+    spinner.stop();
     throw new Error("Failed to create any download requests. Aborting.");
   }
 
-  console.log(`✓ Created ${successCount}/${accountsInfo.length} requests`);
+  spinner.stop(`📝 Prepared ${successCount} account(s)`);
 
   // Wait for files to be ready
-  console.log(
-    `⏳ Waiting ${SETTINGS.downloadWaitTime / 1000}s for files to be ready...`
-  );
+  const waitSpinner = createSpinner("Waiting for bank to prepare files...");
+  waitSpinner.start();
   await page.waitForTimeout(SETTINGS.downloadWaitTime);
+  waitSpinner.stop("📦 Files ready");
 
   // Get updated list
   const updatedResponse = await page.context().request.get(API.historyRequests, {
@@ -506,6 +493,7 @@ async function createDownloadRequests(
 
 /**
  * Downloads the CSV file for a single account
+ * @returns true if download succeeded, false otherwise
  */
 async function downloadAccountCSV(
   page: Page,
@@ -513,7 +501,7 @@ async function downloadAccountCSV(
   startDate: string,
   authHeader: string,
   userAgent: string
-): Promise<void> {
+): Promise<boolean> {
   try {
     // Prepare download
     const prepareUrl = API.prepareDownload(accountInfo.historyRequestId!);
@@ -542,23 +530,15 @@ async function downloadAccountCSV(
         : null;
 
     if (!prepareData) {
-      console.warn(
-        `⚠️ Prepare download returned non-JSON for ${accountInfo.pfmContractId}`
-      );
-      return;
+      return false;
     }
 
     const downloadUrl =
       prepareData.prepareDownload?.characteristics?.downloadUrl;
 
     if (!downloadUrl) {
-      console.warn(`⚠️ No download URL for ${accountInfo.pfmContractId}`);
-      return;
+      return false;
     }
-
-    console.log(
-      `  📥 Downloading ${accountInfo.accountName || accountInfo.pfmContractId}...`
-    );
 
     // Fetch the CSV file
     const fileResponse = await page.context().request.get(downloadUrl, {
@@ -573,10 +553,7 @@ async function downloadAccountCSV(
     });
 
     if (!fileResponse.ok()) {
-      console.warn(
-        `⚠️ Failed to download for ${accountInfo.pfmContractId}: ${fileResponse.status()}`
-      );
-      return;
+      return false;
     }
 
     const csvContent = await fileResponse.text();
@@ -584,18 +561,10 @@ async function downloadAccountCSV(
     // Save the CSV file
     const accountName =
       accountInfo.accountName || `Account_${accountInfo.pfmContractId}`;
-    const savedPath = saveTransactionsCSV(
-      BANK_IDS.CAISSE_EPARGNE,
-      accountName,
-      startDate,
-      csvContent
-    );
+    saveTransactionsCSV(BANK_IDS.CAISSE_EPARGNE, accountName, startDate, csvContent);
 
-    console.log(`  ✓ Saved: ${path.basename(savedPath)}`);
+    return true;
   } catch (error) {
-    console.error(
-      `❌ Error downloading for ${accountInfo.pfmContractId}:`,
-      error
-    );
+    return false;
   }
 }

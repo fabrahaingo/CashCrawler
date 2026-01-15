@@ -2,6 +2,11 @@
 
 An open-source tool to download your own bank data (balances and transactions). Take control of your financial data without relying on third-party services.
 
+<video src="https://raw.githubusercontent.com/fabrahaingo/CashCrawler/main/assets/demo.mp4" controls width="720">
+  Your browser does not support the video tag. You can download the video
+  <a href="https://raw.githubusercontent.com/fabrahaingo/CashCrawler/main/assets/demo.mp4">here</a>.
+</video>
+
 ## Why This Project?
 
 I wanted to track my finances automatically, but I care about **privacy** and **data ownership**. I didn't want to:
