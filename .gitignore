@@ -1,0 +1,22 @@
+# Environment and secrets
+.env
+
+# Dependencies
+node_modules/
+
+# Data (user's personal financial data)
+data/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log
+npm-debug.log*
