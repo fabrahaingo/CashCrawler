@@ -1,0 +1,34 @@
+{
+  "name": "cashcrawler",
+  "version": "1.0.0",
+  "description": "Self-hosted bank data crawler - download your own financial data",
+  "main": "index.js",
+  "scripts": {
+    "setup": "bash scripts/setup.sh",
+    "ce:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/caisse-epargne/index.ts balances",
+    "ce:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/caisse-epargne/index.ts transactions",
+    "uaf:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/uaf-life/index.ts"
+  },
+  "keywords": [
+    "bank",
+    "finance",
+    "scraper",
+    "self-hosted",
+    "privacy"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "dependencies": {
+    "dotenv": "^17.2.3",
+    "ollama-ocr": "^0.0.2",
+    "playwright": "^1.57.0",
+    "playwright-extra": "^4.3.6",
+    "puppeteer-extra-plugin-stealth": "^2.11.2"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.3",
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.3"
+  }
+}
