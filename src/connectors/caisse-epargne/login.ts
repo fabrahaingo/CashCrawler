@@ -4,31 +4,44 @@
  * This bank uses a virtual keyboard for password entry where digits
  * are displayed as images with randomized positions. We use OCR to
  * identify which button corresponds to which digit.
- *
- * Flow:
- * 1. Navigate to login page
- * 2. Enter user identifier
- * 3. Use OCR to map virtual keyboard buttons to digits
- * 4. Click buttons in password order
- * 5. Wait for 2FA if required (up to 2 minutes)
- * 6. Capture API response with account data
  */
 
 import { Page } from "playwright";
-import fs from "fs";
 import { LOGIN_URL, DASHBOARD_URL_PATTERN, SELECTORS } from "./config";
-import { recognizeDigit, cleanDigitMap } from "../../lib/ocr";
-import { getTempFilePath, cleanupTempDir } from "../../lib/storage";
+import { recognizeAllDigits, terminateOCR } from "../../lib/ocr";
 import { withSpinner, createSpinner } from "../../lib/spinner";
 
 /**
+ * Extracts base64 image data from button style attributes
+ */
+function extractBase64Images(styles: (string | null)[]): Buffer[] {
+  return styles.map((style, i) => {
+    if (!style) {
+      throw new Error(`Button ${i} has no style attribute`);
+    }
+    const match = style.match(/url\("data:image\/png;base64,([^"]+)"\)/);
+    if (!match) {
+      throw new Error(`Button ${i} has no valid background image`);
+    }
+    return Buffer.from(match[1], "base64");
+  });
+}
+
+/**
+ * Builds a map from digit to button index
+ */
+function buildDigitToButtonMap(digits: number[]): Map<number, number> {
+  const map = new Map<number, number>();
+  digits.forEach((digit, index) => {
+    if (digit >= 0 && digit <= 9) {
+      map.set(digit, index);
+    }
+  });
+  return map;
+}
+
+/**
  * Inputs password using the virtual keyboard
- *
- * The keyboard displays 10 buttons (0-9) with randomized positions.
- * Each button has a background image containing the digit. We:
- * 1. Extract all button images
- * 2. Run OCR in parallel to identify each digit
- * 3. Click buttons in the order specified by the password
  */
 async function inputPassword(password: string, page: Page): Promise<void> {
   const buttons = await page.$$(SELECTORS.keyboardButtonElement);
@@ -37,74 +50,42 @@ async function inputPassword(password: string, page: Page): Promise<void> {
     throw new Error(`Expected 10 keyboard buttons, found ${buttons.length}`);
   }
 
-  // Extract all button background images in parallel
+  // Extract all button background images
   const styles = await Promise.all(
     buttons.map((button) => button.getAttribute("style"))
   );
+  const imageBuffers = extractBase64Images(styles);
 
-  // Save images to temp directory for OCR
-  const imageFiles = await Promise.all(
-    styles.map(async (style, i) => {
-      if (!style) {
-        throw new Error(`Button ${i} has no style attribute`);
-      }
-
-      const match = style.match(/url\("data:image\/png;base64,([^"]+)"\)/);
-      if (!match) {
-        throw new Error(`Button ${i} has no valid background image`);
-      }
-
-      const filename = getTempFilePath(`button${i}.png`);
-      await fs.promises.writeFile(filename, match[1], "base64");
-      return filename;
-    })
-  );
-
-  // Run OCR on all images in parallel for speed
-  const ocrResults = await withSpinner(
+  // Run OCR on all images in parallel
+  const digits = await withSpinner(
     "Running OCR on keyboard buttons...",
-    () =>
-      Promise.all(
-        imageFiles.map(async (filename, index) => {
-          const digit = await recognizeDigit(filename);
-          return { index, digit };
-        })
-      ),
+    () => recognizeAllDigits(imageBuffers),
     "🔍 OCR complete"
   );
 
-  // Build and clean the digit map
-  let digitMap: Record<number, number> = {};
-  for (const { index, digit } of ocrResults) {
-    digitMap[index] = digit;
-  }
-  digitMap = cleanDigitMap(digitMap);
+  // Terminate OCR worker to free resources
+  await terminateOCR();
 
-  // Clean up temp files
-  cleanupTempDir();
+  // Build digit-to-button mapping
+  const digitToButton = buildDigitToButtonMap(digits);
 
   // Click buttons in password order
   for (const char of password) {
     const targetDigit = parseInt(char, 10);
-    const buttonIndex = Object.keys(digitMap).find(
-      (key) => digitMap[Number(key)] === targetDigit
-    );
+    const buttonIndex = digitToButton.get(targetDigit);
 
     if (buttonIndex === undefined) {
       throw new Error(`Digit ${targetDigit} not found on virtual keyboard`);
     }
 
-    await buttons[Number(buttonIndex)].click();
-    await page.waitForTimeout(150); // Small delay between clicks
+    await buttons[buttonIndex].click();
+    await page.waitForTimeout(50);
   }
 }
 
 /**
  * Performs the complete login flow
  *
- * @param page Playwright page instance
- * @param userId User identifier (account number)
- * @param password Password (digits only)
  * @returns API response data containing account information
  */
 export async function login(
@@ -118,23 +99,21 @@ export async function login(
 
   // Click "Espace personnel" to access login
   await page.click(SELECTORS.loginButton, { timeout: 20000 });
-  await page.waitForLoadState("networkidle");
+  await page.waitForSelector(SELECTORS.identifierInput, { timeout: 20000 });
   console.log("➡️ Navigated to login page");
 
   // Enter user identifier
-  await page.click(SELECTORS.identifierInput, { timeout: 20000 });
-  await page.keyboard.type(userId, { delay: 50 });
-  await page.click(SELECTORS.identifierSubmit, { timeout: 20000 });
-  await page.waitForLoadState("networkidle");
+  await page.click(SELECTORS.identifierInput);
+  await page.keyboard.type(userId, { delay: 30 });
+  await page.click(SELECTORS.identifierSubmit);
+  await page.waitForSelector(SELECTORS.keyboardButton, { timeout: 20000 });
   console.log("➡️ Submitted user ID");
 
-  // Wait for virtual keyboard and enter password
-  await page.waitForSelector(SELECTORS.keyboardButton, { timeout: 20000 });
+  // Enter password via virtual keyboard
   console.log("🔐 Entering password via virtual keyboard...");
   await inputPassword(password, page);
 
   // Set up listener for API response BEFORE submitting
-  // This captures account data when the dashboard loads
   const apiResponsePromise = page.waitForResponse(
     (response) =>
       response.url().includes("augmentedSynthesisViews") &&
@@ -144,14 +123,12 @@ export async function login(
 
   // Submit password
   await page.click(SELECTORS.passwordSubmit, { timeout: 10000 });
-  await page.waitForLoadState("networkidle");
 
-  // Wait for dashboard (may require 2FA approval on mobile app)
+  // Wait for dashboard (may require 2FA approval)
   const spinner = createSpinner("Waiting for login (2FA may be required)...");
   spinner.start();
   try {
     await page.waitForURL(DASHBOARD_URL_PATTERN, { timeout: 120000 });
-    await page.waitForLoadState("networkidle");
     spinner.stop("✅ Login successful");
   } catch (error) {
     spinner.stop();

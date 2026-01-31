@@ -7,8 +7,6 @@
 # This script installs all dependencies needed to run CashCrawler:
 # - Node.js dependencies
 # - Playwright browsers
-# - Ollama (for OCR)
-# - minicpm-v model (for OCR)
 #
 # Usage: npm run setup
 # =============================================================================
@@ -38,70 +36,7 @@ echo "✓ Playwright browsers installed"
 echo ""
 
 # -----------------------------------------------------------------------------
-# 3. Ollama (for OCR)
-# -----------------------------------------------------------------------------
-
-echo "🔍 Checking for Ollama..."
-
-if command -v ollama &> /dev/null; then
-    echo "✓ Ollama is already installed"
-else
-    echo "⚠️  Ollama is not installed."
-    echo ""
-    echo "Ollama is required for OCR (reading virtual keyboard buttons)."
-    echo "Please install it from: https://ollama.ai/download"
-    echo ""
-    
-    # Detect OS and provide specific instructions
-    if [[ "$OSTYPE" == "darwin"* ]]; then
-        echo "For macOS, you can install with:"
-        echo "  brew install ollama"
-        echo ""
-        echo "Or download from: https://ollama.ai/download/mac"
-    elif [[ "$OSTYPE" == "linux-gnu"* ]]; then
-        echo "For Linux, run:"
-        echo "  curl -fsSL https://ollama.ai/install.sh | sh"
-    fi
-    
-    echo ""
-    read -p "Press Enter after installing Ollama to continue, or Ctrl+C to exit..."
-fi
-
-# -----------------------------------------------------------------------------
-# 4. Start Ollama (if not running)
-# -----------------------------------------------------------------------------
-
-echo "🚀 Checking if Ollama is running..."
-
-if ! pgrep -x "ollama" > /dev/null; then
-    echo "Starting Ollama service..."
-    ollama serve &> /dev/null &
-    sleep 2
-fi
-
-echo "✓ Ollama is running"
-echo ""
-
-# -----------------------------------------------------------------------------
-# 5. Pull minicpm-v model
-# -----------------------------------------------------------------------------
-
-echo "🤖 Checking for minicpm-v model..."
-
-if ollama list | grep -q "minicpm-v"; then
-    echo "✓ minicpm-v model is already installed"
-else
-    echo "📥 Downloading minicpm-v model (~5.5GB)..."
-    echo "   This may take a few minutes depending on your connection."
-    echo ""
-    ollama pull minicpm-v
-    echo "✓ minicpm-v model installed"
-fi
-
-echo ""
-
-# -----------------------------------------------------------------------------
-# 6. Environment File
+# 3. Environment File
 # -----------------------------------------------------------------------------
 
 echo "📝 Checking for .env file..."

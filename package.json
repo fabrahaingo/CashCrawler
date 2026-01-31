@@ -21,10 +21,10 @@
   "type": "commonjs",
   "dependencies": {
     "dotenv": "^17.2.3",
-    "ollama-ocr": "^0.0.2",
     "playwright": "^1.57.0",
     "playwright-extra": "^4.3.6",
-    "puppeteer-extra-plugin-stealth": "^2.11.2"
+    "puppeteer-extra-plugin-stealth": "^2.11.2",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/node": "^25.0.3",

@@ -39,10 +39,6 @@ Banks don't provide APIs to their users, so I built one myself. This tool lets y
 ## Prerequisites
 
 - **Node.js** 18+ ([download](https://nodejs.org/))
-- **Ollama** - Local AI runtime for OCR ([download](https://ollama.ai/download))
-- **minicpm-v** model (~5.5GB) - Installed automatically by setup script
-
-> **Why Ollama?** Some banks (like Caisse d'Épargne) use virtual keyboards with randomized button positions. We use OCR to read which digit is on each button.
 
 ## Quick Start
 
@@ -60,8 +56,6 @@ The setup script will:
 
 - Install Node.js dependencies
 - Install Playwright browsers
-- Check for Ollama (with install instructions if missing)
-- Download the minicpm-v model
 - Create a `.env` file template
 
 ### 2. Configure Credentials
@@ -234,22 +228,6 @@ Some banks require 2FA approval on a mobile app. The script will wait up to 2 mi
 
 ## Troubleshooting
 
-### "Ollama is not running"
-
-Start Ollama manually:
-
-```bash
-ollama serve
-```
-
-### "minicpm-v model not found"
-
-Pull the model:
-
-```bash
-ollama pull minicpm-v
-```
-
 ### Login fails
 
 - Double-check your credentials in `.env`
@@ -258,10 +236,7 @@ ollama pull minicpm-v
 
 ### OCR not recognizing digits
 
-The OCR can occasionally make mistakes. The code includes cleanup logic to handle common errors, but if it persists:
-
-- Ensure Ollama is running
-- Try restarting Ollama: `ollama serve`
+The OCR (Tesseract.js) can occasionally make mistakes. The code includes cleanup logic to handle common errors. If issues persist, please open an issue.
 
 ## Roadmap
 

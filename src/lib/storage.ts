@@ -4,7 +4,6 @@
  * This module handles all file I/O operations for:
  * - Transaction history (CSV files)
  * - Balance snapshots (JSON files)
- * - Temporary files (OCR images)
  *
  * Directory structure:
  * ```
@@ -16,8 +15,6 @@
  *     [bank-id]/
  *       [account-name]/
  *         history-from-YYYYMMDD.csv  # Transaction history
- *   .temp/
- *     (temporary OCR images, auto-cleaned)
  * ```
  */
 
@@ -31,9 +28,6 @@ import { BankId } from "./types";
 
 /** Base directory for all data files (relative to project root) */
 export const DATA_DIR = "data";
-
-/** Temporary directory for OCR images and other temp files */
-export const TEMP_DIR = path.join(DATA_DIR, ".temp");
 
 // =============================================================================
 // DATE UTILITIES
@@ -377,22 +371,4 @@ function parseFrenchDate(dateStr: string): Date {
   return new Date(year, month - 1, day);
 }
 
-// =============================================================================
-// TEMP FILE UTILITIES
-// =============================================================================
 
-/** Gets a path for a temporary file in the temp directory */
-export function getTempFilePath(filename: string): string {
-  ensureDir(TEMP_DIR);
-  return path.join(TEMP_DIR, filename);
-}
-
-/** Removes all files from the temp directory */
-export function cleanupTempDir(): void {
-  if (fs.existsSync(TEMP_DIR)) {
-    const files = fs.readdirSync(TEMP_DIR);
-    for (const file of files) {
-      fs.unlinkSync(path.join(TEMP_DIR, file));
-    }
-  }
-}
