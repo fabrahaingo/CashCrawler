@@ -4,17 +4,23 @@
  * This file contains all URLs, selectors, and settings specific to
  * Caisse d'Épargne Île-de-France. Other regional Caisse d'Épargne
  * banks may require different URLs (change the region in LOGIN_URL).
+ *
+ * Updated for ICG Auth (new authentication portal, Angular SPA).
  */
 
 // =============================================================================
 // URLs
 // =============================================================================
 
-/** Login page URL - change "ile-de-france" for other regions */
-export const LOGIN_URL = "https://www.caisse-epargne.fr/ile-de-france/";
+/** Direct login URL via ICG Auth portal */
+export const LOGIN_URL =
+  "https://www.icgauth.caisse-epargne.fr/se-connecter/sso?service=dei";
 
 /** URL pattern to detect successful login (dashboard) */
-export const DASHBOARD_URL_PATTERN = "**/espace-client/compte";
+export const DASHBOARD_URL_PATTERN = "**/espace-client/**";
+
+/** Origin for API requests (used in Referer/Origin headers) */
+export const ORIGIN = "https://www.caisse-epargne.fr";
 
 // =============================================================================
 // API ENDPOINTS
@@ -60,15 +66,28 @@ export const SETTINGS = {
 // =============================================================================
 
 export const SELECTORS = {
-  // Login flow
-  loginButton: "text=Espace personnel",
-  identifierInput: "#input-identifier",
+  // Login flow (ICG Auth Angular SPA)
+  identifierInput: "neo-input-text[name='identifier'] input, .input-identifier input",
   identifierSubmit: "#p-identifier-btn-validate",
   keyboardButton: "as-keyboard-button",
-  keyboardButtonElement: "as-keyboard-button > button",
+  keyboardButtonElement: "as-keyboard-button button.keyboard-button",
   passwordSubmit: "#p-password-btn-submit",
 
   // Transaction download
   downloadButton: "text=Télécharger les opérations",
   historyTab: "#history",
 };
+
+// =============================================================================
+// IMAGE EXTRACTION
+// =============================================================================
+
+/**
+ * Regex to extract base64 image data from keyboard button styles.
+ *
+ * The new ICG Auth uses: background: center no-repeat url(data:image/png;base64,...)
+ * The old system used: background-image: url("data:image/png;base64,...")
+ * This regex handles both formats.
+ */
+export const KEYBOARD_IMAGE_REGEX =
+  /url\(?["']?(data:image\/png;base64,[^"')]+)["']?\)?/;

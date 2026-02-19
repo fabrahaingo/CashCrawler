@@ -6,7 +6,7 @@
  */
 
 import { Page } from "playwright";
-import { LOGIN_URL, SELECTORS, API, SETTINGS } from "./config";
+import { ORIGIN, SELECTORS, API, SETTINGS } from "./config";
 import { BANK_IDS } from "../../lib/types";
 import {
   getTodayDate,
@@ -68,7 +68,7 @@ function makeHeaders(ctx: RequestContext, contentType?: string): Record<string, 
     Accept: "application/json, text/plain, */*",
     ...(contentType && { "Content-Type": contentType }),
     Origin: ctx.origin,
-    Referer: LOGIN_URL,
+    Referer: ORIGIN,
     "User-Agent": ctx.userAgent,
     ...(ctx.authHeader && { Authorization: ctx.authHeader }),
   };
@@ -129,7 +129,7 @@ export async function downloadTransactions(
   const ctx: RequestContext = {
     authHeader,
     userAgent: await page.evaluate(() => navigator.userAgent),
-    origin: new URL(LOGIN_URL).origin,
+    origin: ORIGIN,
   };
 
   // Get existing history requests
