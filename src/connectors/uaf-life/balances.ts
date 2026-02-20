@@ -1,94 +1,88 @@
 /**
  * Balance extraction for UAF Life Patrimoine
  *
- * Scrapes account balances from the dashboard. The data is displayed
- * in an iframe containing a table with account information.
+ * Uses the REST API at api.uaflife-patrimoine.fr/life-api.
+ * The /espaceclient/fiche/synthese endpoint returns client info
+ * with a `contrats` array. Each contract has `donneesFinancieres.encours`.
+ *
+ * API response shape:
+ * {
+ *   contrats: [{
+ *     numeroContrat: "123456789",
+ *     codePeripherique: "AXE",
+ *     libelleProduit: "NetLife 2",
+ *     libelleFournisseur: "Spirica",
+ *     donneesFinancieres: {
+ *       encours: 5000.00,
+ *       dateReference: "2026-01-01",
+ *       valeurRachat: 5000.00,
+ *       montantVerse: 5000,
+ *       montantRachete: 0,
+ *       plusMoinsValue: 0.00,
+ *       ...
+ *     },
+ *     ...
+ *   }]
+ * }
  */
 
-import { Page, Frame } from "playwright";
+import { Page } from "playwright";
 import { AccountBalance } from "../../lib/types";
-import { SELECTORS } from "./config";
+import { ENDPOINTS } from "./config";
+import { apiGet } from "./api";
 import { createSpinner } from "../../lib/spinner";
 
+// =============================================================================
+// MAIN EXPORT
+// =============================================================================
+
 /**
- * Extracts account balances from the UAF Life dashboard
+ * Extracts account balances from the UAF Life API
  *
- * The dashboard contains an iframe with a table. Each row has:
- * - A cell with data-title="Produit" containing the account name
- * - A cell with data-title="Encours" containing the balance
- *
- * @param page Playwright page instance (must be on the dashboard)
+ * @param page Playwright page instance (must be on the app)
+ * @param token Bearer token from login
  * @returns Array of account balances
  */
-export async function extractBalances(page: Page): Promise<AccountBalance[]> {
-  const accountBalances: AccountBalance[] = [];
-
-  // Wait for the iframe to load
-  const spinner = createSpinner("Loading account data...");
+export async function extractBalances(
+  page: Page,
+  token: string
+): Promise<AccountBalance[]> {
+  const spinner = createSpinner("Fetching account data from API...");
   spinner.start();
 
-  let frame: Frame;
   try {
-    await page.waitForSelector(SELECTORS.accountIframe, { timeout: 20000 });
+    const syntheseData = await apiGet(page, ENDPOINTS.clientSynthesis, token);
+    const contrats = syntheseData?.contrats;
 
-    // Get the iframe
-    const iframeElement = await page.$(SELECTORS.accountIframe);
-    if (!iframeElement) {
-      throw new Error("Could not find account iframe");
+    if (!Array.isArray(contrats) || contrats.length === 0) {
+      spinner.stop("⚠️ No contracts found in synthese response");
+      return [];
     }
 
-    const contentFrame = await iframeElement.contentFrame();
-    if (!contentFrame) {
-      throw new Error("Could not access iframe content");
+    const balances: AccountBalance[] = [];
+
+    for (const contrat of contrats) {
+      const name = [
+        contrat.libelleProduit,
+        contrat.libelleFournisseur,
+        contrat.numeroContrat,
+      ]
+        .filter(Boolean)
+        .join(" - ");
+
+      const encours = contrat.donneesFinancieres?.encours;
+
+      if (typeof encours === "number" && !isNaN(encours)) {
+        balances.push({ account: name || "Unknown", balance: encours });
+      } else {
+        console.log(`  ⚠️ No encours for contract: ${name}`);
+      }
     }
-    frame = contentFrame;
 
-    // Wait for balance cells to load
-    await frame.waitForSelector(SELECTORS.balanceCell, {
-      state: "visible",
-      timeout: 10000,
-    });
-
-    spinner.stop("⏳ Account data loaded");
+    spinner.stop("📊 Account data retrieved");
+    return balances;
   } catch (error) {
     spinner.stop();
     throw error;
   }
-
-  // Get all table rows
-  const rows = await frame.$$(`${SELECTORS.accountTable} tr`);
-
-  // Skip template rows (first 3 rows are typically headers/templates)
-  const templateRowsCount = 3;
-  console.log(`Found ${rows.length - templateRowsCount} accounts`);
-
-  for (const row of rows) {
-    try {
-      const nameCell = await row.$(SELECTORS.accountNameCell);
-      const balanceCell = await row.$(SELECTORS.balanceCell);
-
-      if (nameCell && balanceCell) {
-        const name = (await nameCell.innerText()).trim();
-        const balanceText = (await balanceCell.innerText()).trim();
-
-        // Parse balance: remove spaces, € symbol, convert comma to dot
-        const balance = parseFloat(
-          balanceText
-            .replace(/\s/g, "")
-            .replace(/€/g, "")
-            .replace(",", ".")
-        );
-
-        if (!isNaN(balance) && name) {
-          accountBalances.push({ account: name, balance });
-          console.log(`✓ Found account: ${name}`);
-        }
-      }
-    } catch (error) {
-      // Skip rows that can't be parsed
-      continue;
-    }
-  }
-
-  return accountBalances;
 }

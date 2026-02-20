@@ -2,34 +2,58 @@
  * Configuration for UAF Life Patrimoine connector
  *
  * UAF Life is a life insurance / investment platform.
- * Unlike Caisse d'Épargne, it uses a standard login form
- * (no virtual keyboard or OCR needed).
+ * The new app (app.uaflife-patrimoine.fr) uses a REST API
+ * with Bearer token authentication stored in sessionStorage.
  */
 
 // =============================================================================
 // URLs
 // =============================================================================
 
-export const HOME_URL = "https://www.uaflife-patrimoine.fr/accueil";
-export const LOGIN_URL =
-  "https://securite.uaflife-patrimoine.fr/life-securite/login.xhtml";
-export const DASHBOARD_URL = "https://www.uaflife-patrimoine.fr/group/client";
+/** Main SPA entry point — redirects to identity provider for login */
+export const APP_URL = "https://app.uaflife-patrimoine.fr/app";
+
+/** Base URL for all REST API calls (separate subdomain from the SPA) */
+export const API_BASE = "https://api.uaflife-patrimoine.fr/life-api";
 
 // =============================================================================
-// DOM SELECTORS
+// API ENDPOINTS (relative to API_BASE)
+// =============================================================================
+
+export const ENDPOINTS = {
+  /** GET — check if the current session is authenticated */
+  isConnected: "/securite/est_connecte",
+
+  /** GET — current user profile */
+  profile: "/securite/profil",
+
+  /** GET — client synthesis (contracts overview with balances) */
+  clientSynthesis: "/espaceclient/fiche/synthese",
+
+  /** GET — list all contracts */
+  contracts: "/contrats",
+
+  /** GET — encours (current value) for a specific contract */
+  contractEncours: (id: string) => `/contrats/${encodeURIComponent(id)}/encours`,
+
+  /** GET — movements (transactions) for a specific contract */
+  contractMovements: (id: string) => `/contrats/${encodeURIComponent(id)}/mouvements`,
+
+  /** GET — export movements as file for a specific contract */
+  contractExportMovements: (id: string) => `/contrats/${encodeURIComponent(id)}/export/mouvements`,
+
+  /** GET — allocation breakdown for a specific contract */
+  contractRepartition: (id: string) => `/contrats/${encodeURIComponent(id)}/repartition`,
+};
+
+// =============================================================================
+// DOM SELECTORS (login form on identity provider)
 // =============================================================================
 
 export const SELECTORS = {
-  // Login flow
   connectButton: "#connect",
   loginForm: "#saisieInfosConnexions",
   usernameInput: 'input[name="name"]',
   passwordInput: 'input[name="password"]',
   submitButton: "#btnConnexion",
-
-  // Dashboard scraping
-  accountIframe: 'iframe[src*="portefeuilleAssure.xhtml"]',
-  accountTable: "tbody",
-  accountNameCell: '[data-title="Produit"]',
-  balanceCell: '[data-title="Encours"]',
 };
