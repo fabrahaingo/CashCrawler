@@ -7,7 +7,11 @@
     "setup": "bash scripts/setup.sh",
     "ce:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/caisse-epargne/index.ts balances",
     "ce:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/caisse-epargne/index.ts transactions",
-    "uaf:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/uaf-life/index.ts"
+    "uaf:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/uaf-life/index.ts balances",
+    "uaf:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/uaf-life/index.ts transactions",
+    "bourse-direct:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/bourse-direct/index.ts balances",
+    "bourse-direct:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/bourse-direct/index.ts transactions",
+    "all": "NODE_NO_WARNINGS=1 npx tsx ./src/run-all.ts"
   },
   "keywords": [
     "bank",

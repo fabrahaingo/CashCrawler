@@ -240,7 +240,8 @@ The OCR (Tesseract.js) can occasionally make mistakes. The code includes cleanup
 
 ## Roadmap
 
-- [ ] Add more services (Bourse direct, Revolut, etc.)
+- [x] Add Bourse Direct connector (portfolio balances)
+- [ ] Add more services (Revolut, etc.)
 - [ ] API to connect data to other tools like Numbers, Excel, etc...
 - [ ] Automated scheduling (cron)
 
