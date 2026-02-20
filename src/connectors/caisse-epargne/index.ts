@@ -67,21 +67,23 @@ export async function getTransactions(): Promise<void> {
 // CLI ENTRY POINT
 // =============================================================================
 
-const command = process.argv[2];
+if (require.main === module) {
+  const command = process.argv[2];
 
-if (command === "balances") {
-  getBalances().catch((err) => {
-    console.error("❌ Failed to get balances:", err);
-    process.exit(1);
-  });
-} else if (command === "transactions") {
-  getTransactions().catch((err) => {
-    console.error("❌ Failed to get transactions:", err);
-    process.exit(1);
-  });
-} else if (require.main === module) {
-  getBalances().catch((err) => {
-    console.error("❌ Failed:", err);
-    process.exit(1);
-  });
+  if (command === "balances") {
+    getBalances().catch((err) => {
+      console.error("❌ Failed to get balances:", err);
+      process.exit(1);
+    });
+  } else if (command === "transactions") {
+    getTransactions().catch((err) => {
+      console.error("❌ Failed to get transactions:", err);
+      process.exit(1);
+    });
+  } else {
+    getBalances().catch((err) => {
+      console.error("❌ Failed:", err);
+      process.exit(1);
+    });
+  }
 }
