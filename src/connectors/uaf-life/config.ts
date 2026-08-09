@@ -13,8 +13,15 @@
 /** Main SPA entry point — redirects to identity provider for login */
 export const APP_URL = "https://app.uaflife-patrimoine.fr/app";
 
-/** Base URL for all REST API calls (separate subdomain from the SPA) */
-export const API_BASE = "https://api.uaflife-patrimoine.fr/life-api";
+/**
+ * Base URL for all REST API calls.
+ *
+ * Served same-origin under the SPA domain: the auth cookie ("token",
+ * HttpOnly, SameSite=Strict) is scoped to app.uaflife-patrimoine.fr
+ * only. The old api.uaflife-patrimoine.fr subdomain rejects cookie
+ * auth with 401 "Format de la chaîne d'authentification invalide".
+ */
+export const API_BASE = "https://app.uaflife-patrimoine.fr/life-api";
 
 // =============================================================================
 // API ENDPOINTS (relative to API_BASE)
