@@ -25,6 +25,8 @@ export const BANK_IDS = {
   CAISSE_EPARGNE: "ce",
   UAF_LIFE: "uaf",
   BOURSE_DIRECT: "bd",
+  SUMERIA: "sumeria",
+  SWILE: "swile",
 } as const;
 
 export type BankId = (typeof BANK_IDS)[keyof typeof BANK_IDS];

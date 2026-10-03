@@ -11,6 +11,17 @@
     "uaf:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/uaf-life/index.ts transactions",
     "bourse-direct:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/bourse-direct/index.ts balances",
     "bourse-direct:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/bourse-direct/index.ts transactions",
+    "sumeria:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/sumeria/index.ts balances",
+    "sumeria:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/sumeria/index.ts transactions",
+    "swile:balances": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/swile/index.ts balances",
+    "swile:transactions": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/swile/index.ts transactions",
+    "ce:discover": "DEBUG_BROWSER=1 NODE_NO_WARNINGS=1 npx tsx ./src/connectors/caisse-epargne/index.ts discover",
+    "ce:all": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/caisse-epargne/index.ts all",
+    "uaf:all": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/uaf-life/index.ts all",
+    "bourse-direct:all": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/bourse-direct/index.ts all",
+    "sumeria:all": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/sumeria/index.ts all",
+    "swile:all": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/swile/index.ts all",
+    "yahoo:prices": "NODE_NO_WARNINGS=1 npx tsx ./src/connectors/yahoo/index.ts",
     "all": "NODE_NO_WARNINGS=1 npx tsx ./src/run-all.ts"
   },
   "keywords": [

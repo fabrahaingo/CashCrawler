@@ -163,15 +163,61 @@ async function inputPassword(password: string, page: Page): Promise<void> {
 }
 
 /**
+ * Dismisses the cookie consent modal that ICG Auth shows on first load.
+ *
+ * The modal renders a full-screen backdrop that intercepts pointer events,
+ * so any click on the login form (identifier input, virtual keyboard) times
+ * out until it is dismissed. CE Île-de-France uses a Commanders Act
+ * (TrustCommander) popup; we prefer "Continuer sans accepter" to avoid
+ * storing extra cookies and keep state consistent across runs, falling back
+ * to "Tout accepter". Selectors vary, so we try several and ignore failures.
+ */
+async function dismissCookieBanner(page: Page): Promise<void> {
+  const selectors = [
+    "#popin_tc_privacy_button_2", // Commanders Act: "Continuer sans accepter"
+    'button:has-text("Continuer sans accepter")',
+    'a:has-text("Continuer sans accepter")',
+    "#popin_tc_privacy_button", // Commanders Act: "Tout accepter"
+    'button:has-text("Tout accepter")',
+  ];
+  for (const sel of selectors) {
+    try {
+      await page.click(sel, { timeout: 3000 });
+      await page.waitForTimeout(500);
+      console.log("🍪 Cookie banner dismissed");
+      return;
+    } catch {
+      // Try next selector
+    }
+  }
+  // Banner not present or already dismissed — that's fine
+}
+
+export interface LoginResult {
+  /** API response data containing account information */
+  apiData: any;
+  /** Bearer token for direct API calls (captured from bapi requests) */
+  authToken: string;
+}
+
+/**
  * Performs the complete login flow via ICG Auth
  *
- * @returns API response data containing account information
+ * @returns Login result with API data and auth token for direct API calls
  */
 export async function login(
   page: Page,
   userId: string,
   password: string,
-): Promise<any> {
+): Promise<LoginResult> {
+  // Capture auth token from bapi requests made after login
+  let authToken = "";
+  page.on("request", (request) => {
+    if (request.url().includes("rs-ext-bad-ce")) {
+      const auth = request.headers()["authorization"];
+      if (auth) authToken = auth;
+    }
+  });
   // Navigate directly to ICG Auth login page (skip the homepage)
   await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
   console.log("🌐 Page loaded");
@@ -180,6 +226,10 @@ export async function login(
   // The form may take a moment to render after the initial page load
   await page.waitForSelector(SELECTORS.identifierInput, { timeout: 30000 });
   console.log("➡️ Login form ready");
+
+  // Dismiss the cookie consent modal — its backdrop intercepts pointer
+  // events and otherwise makes every form click time out.
+  await dismissCookieBanner(page);
 
   // Enter user identifier
   const identifierInput = await page.$(SELECTORS.identifierInput);
@@ -215,7 +265,14 @@ export async function login(
   // Wait for dashboard redirect (may require 2FA approval on first device)
   await waitForExternalApproval(page, DASHBOARD_URL_PATTERN);
 
-  // Return the captured API response
+  // Capture the API response
   const apiResponse = await apiResponsePromise;
-  return await apiResponse.json();
+  const apiData = await apiResponse.json();
+
+  // Wait briefly for auth token to be captured from subsequent requests
+  if (!authToken) {
+    await page.waitForTimeout(3000);
+  }
+
+  return { apiData, authToken };
 }

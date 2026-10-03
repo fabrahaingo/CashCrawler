@@ -65,31 +65,17 @@ async function handleTwoFactor(page: Page): Promise<void> {
     // Trust option may not be visible — continue without it
   }
 
-  // Try to prompt for code via stdin. If stdin is not a TTY
-  // (e.g., running from a non-interactive shell), fall back to
-  // waiting for the user to complete 2FA manually in the browser.
-  if (process.stdin.isTTY) {
-    const code = await promptForCode("🔐 Enter the 6-digit 2FA code: ");
+  // Prompt for code via stdin (works in both TTY and piped mode)
+  const code = await promptForCode("🔐 Enter the 6-digit 2FA code: ");
 
-    // Type the code into the OTP input fields
-    // react-code-input auto-advances to the next field on each digit
-    await page.click(SELECTORS.otpFirstInput);
-    await page.keyboard.type(code, { delay: 50 });
-    console.log("✅ 2FA code entered");
+  // Type the code into the OTP input fields
+  // react-code-input auto-advances to the next field on each digit
+  await page.click(SELECTORS.otpFirstInput);
+  await page.keyboard.type(code, { delay: 50 });
+  console.log("✅ 2FA code entered");
 
-    // Submit the 2FA form
-    await page.click(SELECTORS.twoFactorSubmit, { timeout: 5000 });
-  } else {
-    // Non-interactive mode: wait for user to complete 2FA in the browser
-    console.log(
-      "⏳ Enter the 2FA code directly in the browser window..."
-    );
-    // Wait for the modal to disappear (user completed 2FA manually)
-    await page.waitForSelector(SELECTORS.twoFactorModal, {
-      state: "detached",
-      timeout: 300000, // 5 minutes
-    });
-  }
+  // Submit the 2FA form
+  await page.click(SELECTORS.twoFactorSubmit, { timeout: 5000 });
 }
 
 /**
@@ -104,8 +90,31 @@ export async function login(
   username: string,
   password: string
 ): Promise<void> {
-  // Navigate to login page
-  await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded" });
+  // Navigate to login page. BD's edge can hang for >30s under load, so use
+  // a longer timeout and retry once on failure before giving up.
+  let lastErr: unknown = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      await page.goto(LOGIN_URL, {
+        waitUntil: "domcontentloaded",
+        timeout: 60000,
+      });
+      lastErr = null;
+      break;
+    } catch (err) {
+      lastErr = err;
+      const reason = err instanceof Error ? err.message.split("\n")[0] : String(err);
+      // BD's edge resets TLS from VPN/datacenter IPs (seen with commercial VPN exits)
+      const hint = /ERR_CONNECTION_RESET|ECONNRESET/.test(reason)
+        ? " — connection reset by Bourse Direct; disconnect your VPN and retry"
+        : "";
+      console.log(
+        `⚠️ Login page load attempt ${attempt} failed (${reason})${hint}${attempt < 2 ? ", retrying..." : ""}`
+      );
+      await page.waitForTimeout(2000);
+    }
+  }
+  if (lastErr) throw lastErr;
   console.log("🌐 Login page loaded");
 
   // Dismiss cookie banner

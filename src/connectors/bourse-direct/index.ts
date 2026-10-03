@@ -104,6 +104,61 @@ export async function getTransactions(): Promise<void> {
   );
 }
 
+/**
+ * Retrieves both balances and transactions in a single browser session
+ */
+export async function getAll(): Promise<void> {
+  await withBrowser(
+    async (page) => {
+      await login(
+        page,
+        process.env.BOURSE_DIRECT_USERNAME ?? "",
+        process.env.BOURSE_DIRECT_PASSWORD ?? ""
+      );
+
+      console.log("💰 Retrieving portfolio balances...");
+      const balances = await extractBalances(page);
+
+      if (balances.length === 0) {
+        console.log(
+          "⚠️ No balances found. Run with DEBUG_BROWSER=1 to investigate."
+        );
+      } else {
+        const savedPath = saveBalances(
+          BANK_IDS.BOURSE_DIRECT,
+          balances as StoredBalance[]
+        );
+        console.log(`💾 Balances saved to: ${savedPath}`);
+
+        console.log("💰 Retrieved balances:");
+        for (const { account, balance } of balances) {
+          console.log(`  ${account}: ${balance.toLocaleString("fr-FR")} €`);
+        }
+      }
+
+      console.log("📋 Retrieving transaction history...");
+      const results = await extractTransactions(page);
+
+      if (results.length === 0) {
+        console.log(
+          "⚠️ No transactions found. Run with DEBUG_BROWSER=1 to investigate."
+        );
+      } else {
+        for (const { accountName, csvContent, startDate } of results) {
+          const savedPath = saveTransactionsCSV(
+            BANK_IDS.BOURSE_DIRECT,
+            accountName,
+            startDate,
+            csvContent
+          );
+          console.log(`💾 Transactions saved to: ${savedPath}`);
+        }
+      }
+    },
+    { persistContext: BANK_IDS.BOURSE_DIRECT }
+  );
+}
+
 // =============================================================================
 // CLI ENTRY POINT
 // =============================================================================
@@ -111,24 +166,32 @@ export async function getTransactions(): Promise<void> {
 if (require.main === module) {
   const command = process.argv[2];
 
+  // Explicit exit needed: readline OTP prompt keeps stdin open
   switch (command) {
     case "balances":
-      getBalances().catch((err) => {
-        console.error("❌ Failed to get balances:", err);
-        process.exit(1);
-      });
+      getBalances()
+        .then(() => process.exit(0))
+        .catch((err) => {
+          console.error("❌ Failed to get balances:", err);
+          process.exit(1);
+        });
       break;
 
     case "transactions":
-      getTransactions().catch((err) => {
-        console.error("❌ Failed to get transactions:", err);
-        process.exit(1);
-      });
+      getTransactions()
+        .then(() => process.exit(0))
+        .catch((err) => {
+          console.error("❌ Failed to get transactions:", err);
+          process.exit(1);
+        });
       break;
 
     default:
-      console.error(`Unknown command: ${command}`);
-      console.error("Usage: npm run bourse-direct:[balances|transactions]");
-      process.exit(1);
+      getAll()
+        .then(() => process.exit(0))
+        .catch((err) => {
+          console.error("❌ Failed:", err);
+          process.exit(1);
+        });
   }
 }

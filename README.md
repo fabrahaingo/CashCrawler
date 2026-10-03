@@ -31,10 +31,19 @@ Banks don't provide APIs to their users, so I built one myself. This tool lets y
 
 ## Supported Banks
 
-| Bank                      | Balances | Transactions |
+| Bank / Service            | Balances | Transactions |
 | ------------------------- | -------- | ------------ |
 | Caisse d'Épargne (France) | ✅       | ✅           |
+| Sumeria (ex-Lydia)        | ✅       | ✅           |
+| Bourse Direct             | ✅       | ✅           |
+| Swile (meal vouchers)     | ✅       | ✅           |
 | UAF Life Patrimoine       | ✅       | ❌           |
+
+Swile is a **pure-API** connector (no browser): it uses the Swile web-app
+OAuth password grant. The first run on a machine triggers an email
+verification code; after that, device-trust headers and a refresh token
+are cached in `data/.browser/swile-auth.json`, so later runs are fully
+non-interactive. Run with `npm run swile:all`.
 
 ## Prerequisites
 

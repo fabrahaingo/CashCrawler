@@ -42,9 +42,8 @@ interface RawMovement {
  */
 async function getContracts(
   page: Page,
-  token: string
 ): Promise<ContractInfo[]> {
-  const syntheseData = await apiGet(page, ENDPOINTS.clientSynthesis, token);
+  const syntheseData = await apiGet(page, ENDPOINTS.clientSynthesis);
   const contrats = syntheseData?.contrats;
 
   if (!Array.isArray(contrats)) return [];
@@ -227,18 +226,16 @@ function findEarliestDate(movements: RawMovement[]): string | null {
  *   2. Falls back to /contrats/{id}/export/mouvements if no data
  *   3. Saves all API fields as CSV columns
  *
- * @param page Playwright page instance (must be on the app)
- * @param token Bearer token from login
+ * @param page Playwright page instance (must be on the app, session cookie set)
  * @returns Array of { accountName, csvContent, startDate } for saving
  */
 export async function extractTransactions(
   page: Page,
-  token: string
 ): Promise<Array<{ accountName: string; csvContent: string; startDate: string }>> {
   const spinner = createSpinner("Fetching contract list...");
   spinner.start();
 
-  const contracts = await getContracts(page, token);
+  const contracts = await getContracts(page);
 
   if (contracts.length === 0) {
     spinner.stop("⚠️ No contracts found");
@@ -264,7 +261,7 @@ export async function extractTransactions(
 
     try {
       const path = `${ENDPOINTS.contractMovements(contract.id)}?limit=500`;
-      const mouvementsData = await apiGet(page, path, token);
+      const mouvementsData = await apiGet(page, path);
 
       // Log raw response shape for debugging
       console.log(

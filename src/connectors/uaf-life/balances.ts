@@ -39,19 +39,17 @@ import { createSpinner } from "../../lib/spinner";
 /**
  * Extracts account balances from the UAF Life API
  *
- * @param page Playwright page instance (must be on the app)
- * @param token Bearer token from login
+ * @param page Playwright page instance (must be on the app, session cookie set)
  * @returns Array of account balances
  */
 export async function extractBalances(
   page: Page,
-  token: string
 ): Promise<AccountBalance[]> {
   const spinner = createSpinner("Fetching account data from API...");
   spinner.start();
 
   try {
-    const syntheseData = await apiGet(page, ENDPOINTS.clientSynthesis, token);
+    const syntheseData = await apiGet(page, ENDPOINTS.clientSynthesis);
     const contrats = syntheseData?.contrats;
 
     if (!Array.isArray(contrats) || contrats.length === 0) {

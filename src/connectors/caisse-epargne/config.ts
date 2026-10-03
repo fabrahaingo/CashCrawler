@@ -27,18 +27,40 @@ export const ORIGIN = "https://www.caisse-epargne.fr";
 // =============================================================================
 
 const API_BASE = "https://www.rs-ext-bad-ce.caisse-epargne.fr/bapi";
+const PFM_BASE = "https://www.rs-ext-bad-ce.caisse-epargne.fr/pfm/user/v1.1";
 
 export const API = {
-  /** Lists accounts with their last download info */
+  /** Account synthesis (contains PFM account IDs in _links) */
+  augmentedSynthesisViews: `${API_BASE}/contract/v2/augmentedSynthesisViews?pfmCharacteristicsIndicator=true&productFamilyPFM=1,2,3,4,6,7,17,18,20,19`,
+
+  /** PFM transactions for an account (returns all history in one call) */
+  pfmTransactions: (accountId: string) =>
+    `${PFM_BASE}/transactions?accountIds=${accountId}`,
+
+  /**
+   * Pending card operations ("Opérations carte en cours"): same PFM endpoint,
+   * filtered on status WD. The plain call above only returns booked (AC)
+   * operations. Query copied from the CE web app (found with ce:discover).
+   */
+  pfmPendingTransactions: (accountId: string) =>
+    `${PFM_BASE}/transactions?businessType=UserProfile&take=200&orderBy=ByOriginalDate&includeDisabledAccounts=true&useAndSearchForParsedData=true&parsedData=${encodeURIComponent(
+      JSON.stringify([
+        { key: "status", value: "WD" },
+        { key: "transactionGranularityCode", value: "IN" },
+        { key: "transactionGranularityCode", value: "ST" },
+      ])
+    )}&accountIds=${accountId}`,
+
+  /** Lists accounts with their last download info (legacy CSV download) */
   lastDownloadHistory: `${API_BASE}/transactionDownload/v1/lastDownloadHistoryViews?userId=currentUser`,
 
-  /** Lists all download requests (history) */
+  /** Lists all download requests (history) (legacy CSV download) */
   historyRequests: `${API_BASE}/transactionDownload/v1/historyRequests`,
 
-  /** Creates a new download request (POST) */
+  /** Creates a new download request (POST) (legacy CSV download) */
   createHistoryRequest: `${API_BASE}/transactionDownload/v1/historyRequests`,
 
-  /** Prepares a download and returns the download URL (POST) */
+  /** Prepares a download and returns the download URL (POST) (legacy CSV download) */
   prepareDownload: (id: string) =>
     `${API_BASE}/transactionDownload/v1/historyRequests/${id}/prepareDownload`,
 };

@@ -135,6 +135,10 @@ export async function withBrowser<T>(
     if (options?.persistContext) {
       await saveStorageState(context, options.persistContext);
     }
-    await browser.close();
+    // Force-close browser with timeout to prevent hanging
+    await Promise.race([
+      browser.close(),
+      new Promise((resolve) => setTimeout(resolve, 10_000)),
+    ]);
   }
 }

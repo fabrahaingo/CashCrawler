@@ -34,14 +34,14 @@ export async function getBalances(): Promise<void> {
 
   await withBrowser(
     async (page) => {
-      const token = await login(
+      await login(
         page,
         process.env.UAF_USERNAME ?? "",
         process.env.UAF_PASSWORD ?? ""
       );
 
       console.log("💰 Retrieving account balances...");
-      const balances = await extractBalances(page, token);
+      const balances = await extractBalances(page);
 
       if (balances.length === 0) {
         console.log(
@@ -71,14 +71,14 @@ export async function getBalances(): Promise<void> {
 export async function getTransactions(): Promise<void> {
   await withBrowser(
     async (page) => {
-      const token = await login(
+      await login(
         page,
         process.env.UAF_USERNAME ?? "",
         process.env.UAF_PASSWORD ?? ""
       );
 
       console.log("📋 Retrieving transaction history...");
-      const results = await extractTransactions(page, token);
+      const results = await extractTransactions(page);
 
       if (results.length === 0) {
         console.log(
@@ -95,6 +95,61 @@ export async function getTransactions(): Promise<void> {
           csvContent
         );
         console.log(`💾 Transactions saved to: ${savedPath}`);
+      }
+    },
+    { persistContext: BANK_IDS.UAF_LIFE }
+  );
+}
+
+/**
+ * Retrieves both balances and transactions in a single browser session
+ */
+export async function getAll(): Promise<void> {
+  await withBrowser(
+    async (page) => {
+      await login(
+        page,
+        process.env.UAF_USERNAME ?? "",
+        process.env.UAF_PASSWORD ?? ""
+      );
+
+      console.log("💰 Retrieving account balances...");
+      const balances = await extractBalances(page);
+
+      if (balances.length === 0) {
+        console.log(
+          "⚠️ No balances found. Run with DEBUG_BROWSER=1 to investigate."
+        );
+      } else {
+        const savedPath = saveBalances(
+          BANK_IDS.UAF_LIFE,
+          balances as StoredBalance[]
+        );
+        console.log(`💾 Balances saved to: ${savedPath}`);
+
+        console.log("💰 Retrieved balances:");
+        for (const { account, balance } of balances) {
+          console.log(`  ${account}: ${balance.toLocaleString("fr-FR")} €`);
+        }
+      }
+
+      console.log("📋 Retrieving transaction history...");
+      const results = await extractTransactions(page);
+
+      if (results.length === 0) {
+        console.log(
+          "⚠️ No transactions found. Run with DEBUG_BROWSER=1 to investigate."
+        );
+      } else {
+        for (const { accountName, csvContent, startDate } of results) {
+          const savedPath = saveTransactionsCSV(
+            BANK_IDS.UAF_LIFE,
+            accountName,
+            startDate,
+            csvContent
+          );
+          console.log(`💾 Transactions saved to: ${savedPath}`);
+        }
       }
     },
     { persistContext: BANK_IDS.UAF_LIFE }
@@ -124,9 +179,8 @@ if (require.main === module) {
       break;
 
     default:
-      // Default to balances for backward compatibility
-      getBalances().catch((err) => {
-        console.error("❌ Failed to get balances:", err);
+      getAll().catch((err) => {
+        console.error("❌ Failed:", err);
         process.exit(1);
       });
   }

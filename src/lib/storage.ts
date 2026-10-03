@@ -310,23 +310,105 @@ export function saveTransactionsCSV(
   const accountDir = getAccountDir(bankId, accountName);
   ensureDir(accountDir);
 
-  // Check if we have an existing file - use its start date to preserve history
+  const newLines = csvContent.split("\n").filter((l) => l.trim());
+  const newDataCount = newLines.length - 1; // exclude header
+  const newHeader = newLines[0]?.trim() ?? "";
+
+  // Check if we have an existing file
   const existingFile = getLatestTransactionsFile(bankId, accountName);
-  const effectiveStartDate = existingFile?.startDate ?? startDate;
 
-  const filename = getTransactionsFilename(effectiveStartDate);
-  const filePath = path.join(accountDir, filename);
+  if (existingFile) {
+    const existingContent = fs.readFileSync(existingFile.filePath, "utf-8");
+    const existingLines = existingContent.split("\n").filter((l) => l.trim());
+    const existingDataCount = existingLines.length - 1;
+    const existingHeader = existingLines[0]?.trim() ?? "";
 
-  // Merge with existing data if file exists
-  if (fs.existsSync(filePath)) {
-    const existingContent = fs.readFileSync(filePath, "utf-8");
+    // SAFETY: Never lose rows. If new data has fewer rows and same format,
+    // we merge (which only adds). If format changed, archive + warn.
+    const formatChanged = existingHeader !== newHeader;
+
+    if (formatChanged) {
+      // Archive the old file — never delete it
+      const archivePath = existingFile.filePath.replace(".csv", ".legacy.csv");
+      if (!fs.existsSync(archivePath)) {
+        fs.copyFileSync(existingFile.filePath, archivePath);
+        console.log(
+          `⚠️  CSV format changed for ${accountName}. Old file archived to: ${archivePath}`
+        );
+      }
+      // Write new format
+      const effectiveStartDate = existingFile.startDate < startDate
+        ? existingFile.startDate
+        : startDate;
+      const filename = getTransactionsFilename(effectiveStartDate);
+      const filePath = path.join(accountDir, filename);
+      fs.writeFileSync(filePath, csvContent, "utf-8");
+      return filePath;
+    }
+
+    // Same format — always merge (never replace)
     const mergedContent = mergeCSV(existingContent, csvContent);
-    fs.writeFileSync(filePath, mergedContent, "utf-8");
-  } else {
-    fs.writeFileSync(filePath, csvContent, "utf-8");
+    const mergedDataCount = mergedContent.split("\n").filter((l) => l.trim()).length - 1;
+
+    // SAFETY: merged file must have at least as many rows as the existing file
+    if (mergedDataCount < existingDataCount) {
+      throw new Error(
+        `Data loss prevented for ${bankId}/${accountName}: ` +
+        `merge would reduce rows from ${existingDataCount} to ${mergedDataCount}. ` +
+        `This should never happen — investigate before retrying.`
+      );
+    }
+
+    fs.writeFileSync(existingFile.filePath, mergedContent, "utf-8");
+    return existingFile.filePath;
   }
 
+  // No existing file — write new
+  const effectiveStartDate = startDate;
+  const filename = getTransactionsFilename(effectiveStartDate);
+  const filePath = path.join(accountDir, filename);
+  fs.writeFileSync(filePath, csvContent, "utf-8");
   return filePath;
+}
+
+// =============================================================================
+// DATA INTEGRITY VALIDATION
+// =============================================================================
+
+/**
+ * Validates that transaction files haven't lost data compared to a previous run.
+ *
+ * Call this after any download to verify row counts only grew (or stayed same).
+ * Throws an error if any account has fewer rows than before, which would mean
+ * irreplaceable historical data was lost.
+ *
+ * @param bankId Bank identifier
+ * @param expectedMinRows Map of account name → minimum expected row count
+ */
+export function validateNoDataLoss(
+  bankId: BankId,
+  expectedMinRows: Map<string, number>
+): void {
+  for (const [accountName, minRows] of expectedMinRows) {
+    const fileInfo = getLatestTransactionsFile(bankId, accountName);
+    if (!fileInfo) {
+      throw new Error(
+        `Data loss detected for ${bankId}/${accountName}: ` +
+        `file is missing (expected at least ${minRows} rows)`
+      );
+    }
+
+    const content = fs.readFileSync(fileInfo.filePath, "utf-8");
+    const dataRows = content.split("\n").filter((l) => l.trim()).length - 1;
+
+    if (dataRows < minRows) {
+      throw new Error(
+        `Data loss detected for ${bankId}/${accountName}: ` +
+        `file has ${dataRows} rows but expected at least ${minRows}. ` +
+        `Check ${fileInfo.filePath}`
+      );
+    }
+  }
 }
 
 /**

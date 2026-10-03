@@ -2,11 +2,9 @@
  * Shared API helper for UAF Life Patrimoine
  *
  * Makes authenticated GET requests to the UAF Life REST API.
- * Used by both balances.ts and transactions.ts.
- *
- * The API lives on a separate subdomain (api.uaflife-patrimoine.fr)
- * from the SPA (app.uaflife-patrimoine.fr), so page.context().request.get()
- * works correctly — it makes a direct HTTP call, not routed through the SPA.
+ * Authentication is handled via an HttpOnly cookie ("token") on
+ * api.uaflife-patrimoine.fr, which Playwright's request context
+ * sends automatically — no Bearer token needed.
  */
 
 import { Page } from "playwright";
@@ -17,15 +15,13 @@ import { API_BASE } from "./config";
  *
  * @param page Playwright page (used for its browser context request)
  * @param path API path relative to API_BASE
- * @param token Bearer token
  * @returns Parsed JSON response
  */
-export async function apiGet(page: Page, path: string, token: string): Promise<any> {
+export async function apiGet(page: Page, path: string): Promise<any> {
   const url = `${API_BASE}${path}`;
 
   const response = await page.context().request.get(url, {
     headers: {
-      Authorization: `Bearer ${token}`,
       Accept: "application/json",
     },
   });

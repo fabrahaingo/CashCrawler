@@ -13,20 +13,10 @@
 
 import "dotenv/config";
 
-import {
-  getBalances as getCEBalances,
-  getTransactions as getCETransactions,
-} from "./connectors/caisse-epargne/index";
-
-import {
-  getBalances as getUAFBalances,
-  getTransactions as getUAFTransactions,
-} from "./connectors/uaf-life/index";
-
-import {
-  getBalances as getBDBalances,
-  getTransactions as getBDTransactions,
-} from "./connectors/bourse-direct/index";
+import { getAll as getCEAll } from "./connectors/caisse-epargne/index";
+import { getAll as getUAFAll } from "./connectors/uaf-life/index";
+import { getAll as getBDAll } from "./connectors/bourse-direct/index";
+import { getAll as getSumeriaAll } from "./connectors/sumeria/index";
 
 // =============================================================================
 // TYPES
@@ -81,34 +71,25 @@ async function main(): Promise<void> {
   // Caisse d'Épargne
   // =========================================================================
 
-  results.push(
-    await runOperation("Caisse d'Épargne", "balances", getCEBalances)
-  );
-  results.push(
-    await runOperation("Caisse d'Épargne", "transactions", getCETransactions)
-  );
+  results.push(await runOperation("Caisse d'Épargne", "all", getCEAll));
 
   // =========================================================================
   // UAF Life
   // =========================================================================
 
-  results.push(
-    await runOperation("UAF Life", "balances", getUAFBalances)
-  );
-  results.push(
-    await runOperation("UAF Life", "transactions", getUAFTransactions)
-  );
+  results.push(await runOperation("UAF Life", "all", getUAFAll));
 
   // =========================================================================
   // Bourse Direct
   // =========================================================================
 
-  results.push(
-    await runOperation("Bourse Direct", "balances", getBDBalances)
-  );
-  results.push(
-    await runOperation("Bourse Direct", "transactions", getBDTransactions)
-  );
+  results.push(await runOperation("Bourse Direct", "all", getBDAll));
+
+  // =========================================================================
+  // Sumeria
+  // =========================================================================
+
+  results.push(await runOperation("Sumeria", "all", getSumeriaAll));
 
   // =========================================================================
   // Summary
